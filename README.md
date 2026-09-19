@@ -50,6 +50,67 @@ Send `x-api-key` when `API_KEY` is set. Bodies are JSON arrays of 1–1000 recor
 Ingestion status: `201` all inserted · `207` some rejected · `422` none inserted or invalid batch size.
 The response lists every rejected record with its reason.
 
+## How to test the API
+
+The same commands work against your local API (`http://localhost:8000`, key `dev-key`) and the
+deployed one on AWS. For AWS you need two values:
+
+- **`<API_URL>`**: GitHub → Actions → last **Deploy** → step *Show outputs* → `api_url`
+  (or API Gateway → *Stages* → `v1` → *Invoke URL*). It ends in `/v1`.
+- **`<API_KEY>`**: API Gateway → *API keys* → `globant-poc-client` → *Show*.
+  Never commit the real key; the examples use placeholders.
+
+The first call after a pause can take a few seconds (Lambda and database cold start).
+
+| Check | Expected result |
+|---|---|
+| `GET /health` | `{"status":"ok"}` |
+| `GET /analytics/departments-above-average` | 7 departments: Support 216, Engineering 205, Human Resources 201, Services 200, Business Development 185, Research and Development 148, Marketing 142 |
+| `GET /analytics/hires-by-quarter` | 933 rows, 1,643 hires in total |
+| `POST /hired-employees` with `"datetime":"2021-01-01"` | HTTP 422, `rejected: 1`, reason *"datetime is not ISO 8601"*; nothing is inserted |
+| `POST /backup/departments` | `rows: 12` and the path of the new `.avro` file (`s3://...` on AWS) |
+
+**Windows PowerShell**
+
+```powershell
+$api = "<API_URL>"
+$key = "<API_KEY>"
+$h   = @{ "x-api-key" = $key }
+
+Invoke-RestMethod "$api/health" -Headers $h
+Invoke-RestMethod "$api/analytics/departments-above-average" -Headers $h | Format-Table
+(Invoke-RestMethod "$api/analytics/hires-by-quarter" -Headers $h).Count      # 933
+
+# Invalid record (bad date): must be rejected. Body goes in a file to avoid quoting problems.
+'[{"id":99999,"name":"Test","datetime":"2021-01-01","department_id":1,"job_id":1}]' | Set-Content body.json -Encoding ascii
+curl.exe -s -X POST "$api/hired-employees" -H "x-api-key: $key" -H "content-type: application/json" --data "@body.json"
+
+# AVRO backup
+curl.exe -s -X POST "$api/backup/departments" -H "x-api-key: $key"
+```
+
+**macOS and Linux (Terminal, bash or zsh)**
+
+```bash
+API="<API_URL>"
+KEY="<API_KEY>"
+
+curl -s -H "x-api-key: $KEY" "$API/health"
+curl -s -H "x-api-key: $KEY" "$API/analytics/departments-above-average"       # add | jq for pretty output
+curl -s -H "x-api-key: $KEY" "$API/analytics/hires-by-quarter" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))"   # 933
+
+# Invalid record (bad date): must be rejected
+curl -s -X POST "$API/hired-employees" -H "x-api-key: $KEY" -H "content-type: application/json" \
+     -d '[{"id":99999,"name":"Test","datetime":"2021-01-01","department_id":1,"job_id":1}]'
+
+# AVRO backup
+curl -s -X POST "$API/backup/departments" -H "x-api-key: $KEY"
+```
+
+Do not insert a valid test employee unless you plan to clean it up: it changes the analytics counts.
+If it happens, run **Load historical data** with `reset` checked to start again from the CSV files.
+(iPhone and iPad have no terminal; use a REST client app with the same URLs and the `x-api-key` header.)
+
 ## Design decisions
 
 - **One endpoint per table** (not a generic one): each table has a different contract (only
