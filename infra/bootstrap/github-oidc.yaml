@@ -14,6 +14,17 @@ Parameters:
     Type: String
     Default: globant-data-challenge
     Description: Repository name (only this repository can assume the role).
+  GitHubOwnerId:
+    Type: String
+    Default: "25284226"
+    Description: >-
+      Numeric ID of the GitHub owner. GitHub puts it in the OIDC subject
+      ("repo:owner@ID/repo@ID:..."), which stays valid if a repository is
+      deleted and recreated under the same name.
+  GitHubRepoId:
+    Type: String
+    Default: "1376603563"
+    Description: Numeric ID of the repository (see GitHubOwnerId).
 
 Resources:
   GitHubOidcProvider:
@@ -58,7 +69,7 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepo}:*
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}@${GitHubOwnerId}/${GitHubRepo}@${GitHubRepoId}:*
       # PoC shortcut: Terraform creates VPC, RDS, IAM roles, Lambda and more, so the
       # role needs broad rights. Trust is limited to ONE repository. Narrow it down
       # before any real use.
