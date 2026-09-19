@@ -1,0 +1,489 @@
+<title>Globant PoC AWS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #f2f5f4;
+    --surface: #ffffff;
+    --zone: #e9eff0;
+    --ink: #14211e;
+    --muted: #56665f;
+    --line: #b4c2bd;
+    --arrow: #3b4d47;
+    --teal: #0f766e;
+    --blue: #2b5aa8;
+    --amber: #a4570a;
+    --teal-bg: #e3f3f0;
+    --blue-bg: #e6edf9;
+    --amber-bg: #f8ecdb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1412;
+      --surface: #16201d;
+      --zone: #121b19;
+      --ink: #e3ebe8;
+      --muted: #94a59f;
+      --line: #34443f;
+      --arrow: #a9bab4;
+      --teal: #46c2b0;
+      --blue: #86aaea;
+      --amber: #e3a75f;
+      --teal-bg: #12302c;
+      --blue-bg: #17233a;
+      --amber-bg: #33230f;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1412;
+    --surface: #16201d;
+    --zone: #121b19;
+    --ink: #e3ebe8;
+    --muted: #94a59f;
+    --line: #34443f;
+    --arrow: #a9bab4;
+    --teal: #46c2b0;
+    --blue: #86aaea;
+    --amber: #e3a75f;
+    --teal-bg: #12302c;
+    --blue-bg: #17233a;
+    --amber-bg: #33230f;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    padding-inline: 16px;
+    padding-block: 32px 56px;
+  }
+  main { max-width: 1080px; margin-inline: auto; display: grid; gap: 40px; }
+  h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.15; margin: 0 0 8px; font-weight: 600; text-wrap: balance; }
+  h2 { font-size: 1.15rem; margin: 0 0 4px; font-weight: 600; }
+  p { margin: 0; }
+  .lede { color: var(--muted); max-width: 64ch; }
+  .eyebrow { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--teal); }
+
+  /* language switch: everything tagged .es / .en shows only in its language */
+  main[data-lang="es"] .en, main[data-lang="en"] .es { display: none !important; }
+  .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .lang { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .lang button {
+    font: 500 12px "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .06em;
+    background: var(--surface); color: var(--muted); border: 0; padding: 6px 14px; cursor: pointer;
+  }
+  .lang button + button { border-left: 1px solid var(--line); }
+  .lang button[aria-pressed="true"] { background: var(--teal); color: var(--surface); }
+  .lang button:focus-visible { outline: 2px solid var(--teal); outline-offset: -2px; }
+
+  figure { margin: 0; display: grid; gap: 12px; }
+  .diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+  .diagram svg { display: block; width: 100%; min-width: 780px; height: auto; }
+  figcaption { color: var(--muted); font-size: 13.5px; max-width: 80ch; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .legend i { width: 14px; height: 14px; border-radius: 3px; border: 2px solid; display: inline-block; }
+  .k-compute { border-color: var(--teal); background: var(--teal-bg); }
+  .k-data { border-color: var(--blue); background: var(--blue-bg); }
+  .k-edge { border-color: var(--amber); background: var(--amber-bg); }
+  .k-ext { border-color: var(--line); background: var(--surface); }
+
+  /* SVG styling via classes (page CSS, not inside the SVG) */
+  svg text { fill: var(--ink); font-family: "IBM Plex Sans", system-ui, sans-serif; }
+  .t { font-size: 13px; font-weight: 600; }
+  .s { font-size: 10.5px; font-family: "IBM Plex Mono", ui-monospace, monospace; fill: var(--muted); }
+  .lbl { font-size: 10.5px; font-family: "IBM Plex Mono", ui-monospace, monospace; fill: var(--muted); }
+  .zone-t { font-size: 11px; font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .06em; fill: var(--muted); text-transform: uppercase; }
+  .n-compute { fill: var(--teal-bg); stroke: var(--teal); stroke-width: 1.6; }
+  .n-data { fill: var(--blue-bg); stroke: var(--blue); stroke-width: 1.6; }
+  .n-edge { fill: var(--amber-bg); stroke: var(--amber); stroke-width: 1.6; }
+  .n-ext { fill: var(--surface); stroke: var(--line); stroke-width: 1.6; }
+  .n-ep { fill: var(--surface); stroke: var(--amber); stroke-width: 1.4; stroke-dasharray: 4 3; }
+  .n-future { fill: var(--surface); stroke: var(--blue); stroke-width: 1.6; stroke-dasharray: 6 4; }
+  .region { fill: none; stroke: var(--line); stroke-width: 1.4; stroke-dasharray: 7 5; }
+  .vpc { fill: var(--zone); stroke: var(--teal); stroke-width: 1.4; }
+  .a { fill: none; stroke: var(--arrow); stroke-width: 1.5; }
+  .a-dash { fill: none; stroke: var(--muted); stroke-width: 1.3; stroke-dasharray: 5 4; }
+  .head { fill: var(--arrow); stroke: none; }
+
+  .map { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 40px; margin: 0; padding: 0; }
+  .map div { padding-block: 14px; border-top: 1px solid var(--line); }
+  .map dt { font-weight: 600; margin-bottom: 2px; }
+  .map dd { margin: 0; color: var(--muted); font-size: 14px; }
+  code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: .88em; }
+  .cost { border-left: 3px solid var(--amber); padding: 4px 0 4px 16px; max-width: 78ch; }
+  .cost strong { font-weight: 600; }
+
+  .table-wrap { overflow-x: auto; margin-top: 12px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 12px 16px 12px 0; border-top: 1px solid var(--line); }
+  th { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; border-top: 0; border-bottom: 1px solid var(--line); }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  td { color: var(--muted); }
+  td:first-child { color: var(--ink); }
+  ul.plain { margin: 12px 0 0; padding-left: 20px; display: grid; gap: 6px; max-width: 78ch; color: var(--muted); font-size: 14px; }
+  ul.plain b { color: var(--ink); font-weight: 600; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px 40px; margin-top: 8px; }
+  .two h3 { margin: 0 0 4px; font-size: 13px; font-family: "IBM Plex Mono", ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); font-weight: 500; }
+  .two p { color: var(--muted); font-size: 14px; }
+</style>
+
+<main data-lang="es" id="page">
+  <header>
+    <div class="top">
+      <div class="eyebrow">Globant · Data Engineer · PoC</div>
+      <div class="lang" role="group" aria-label="Idioma / Language">
+        <button type="button" id="btn-es" aria-pressed="true">ES</button>
+        <button type="button" id="btn-en" aria-pressed="false">EN</button>
+      </div>
+    </div>
+    <h1 class="es">Cómo queda la solución en AWS</h1>
+    <h1 class="en">How the solution runs on AWS</h1>
+    <p class="lede es">Todo el código Python viaja en una sola imagen Docker que corre como dos Lambdas: una recibe la API y otra migra los CSV. Los datos viven en PostgreSQL dentro de una red privada.</p>
+    <p class="lede en">All the Python code ships in one Docker image that runs as two Lambdas: one serves the API and the other migrates the CSV files. Data lives in PostgreSQL inside a private network.</p>
+  </header>
+
+  <figure>
+    <div class="legend" aria-hidden="true">
+      <span><i class="k-compute"></i><span class="es">Cómputo</span><span class="en">Compute</span></span>
+      <span><i class="k-data"></i><span class="es">Datos</span><span class="en">Data</span></span>
+      <span><i class="k-edge"></i><span class="es">Entrada y seguridad</span><span class="en">Entry and security</span></span>
+      <span><i class="k-ext"></i><span class="es">Personas y servicios de apoyo</span><span class="en">People and supporting services</span></span>
+    </div>
+    <div class="diagram">
+      <svg viewBox="0 0 1040 560" role="img" data-aria-es="Arquitectura AWS: el cliente llama a API Gateway, que invoca a la Lambda API dentro de una VPC privada; la Lambda y el loader usan RDS PostgreSQL, y acceden a S3 y Secrets Manager por endpoints privados." data-aria-en="AWS architecture: the client calls API Gateway, which invokes the API Lambda inside a private VPC; the Lambdas use RDS PostgreSQL and reach S3 and Secrets Manager through private endpoints.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path class="head" d="M0 0 L10 5 L0 10 z"/>
+          </marker>
+        </defs>
+
+        <!-- zones -->
+        <rect class="region" x="150" y="15" width="875" height="530" rx="8"/>
+        <text class="zone-t es" x="164" y="36">AWS Cloud · una región</text>
+        <text class="zone-t en" x="164" y="36">AWS Cloud · one region</text>
+        <rect class="vpc" x="400" y="60" width="452" height="460" rx="8"/>
+        <text class="zone-t es" x="414" y="82">VPC · subredes privadas, sin NAT</text>
+        <text class="zone-t en" x="414" y="82">VPC · private subnets, no NAT</text>
+
+        <!-- people -->
+        <rect class="n-ext" x="10" y="95" width="100" height="64" rx="6"/>
+        <text class="t es" x="60" y="123" text-anchor="middle">Cliente</text>
+        <text class="t en" x="60" y="123" text-anchor="middle">Client</text>
+        <text class="s" x="60" y="140" text-anchor="middle">API / curl</text>
+
+        <rect class="n-ext" x="10" y="367" width="100" height="60" rx="6"/>
+        <text class="t es" x="60" y="394" text-anchor="middle">Ingeniero</text>
+        <text class="t en" x="60" y="394" text-anchor="middle">Engineer</text>
+        <text class="s es" x="60" y="411" text-anchor="middle">CSV histórico</text>
+        <text class="s en" x="60" y="411" text-anchor="middle">Historical CSV</text>
+
+        <!-- API Gateway -->
+        <rect class="n-edge" x="170" y="95" width="120" height="64" rx="6"/>
+        <text class="t" x="230" y="123" text-anchor="middle">API Gateway</text>
+        <text class="s" x="230" y="140" text-anchor="middle">REST + API key</text>
+
+        <!-- Lambdas -->
+        <rect class="n-compute" x="470" y="95" width="160" height="64" rx="6"/>
+        <text class="t" x="550" y="123" text-anchor="middle">Lambda · API</text>
+        <text class="s" x="550" y="140" text-anchor="middle">FastAPI + Mangum</text>
+
+        <rect class="n-compute" x="470" y="400" width="160" height="64" rx="6"/>
+        <text class="t" x="550" y="428" text-anchor="middle">Lambda · Loader</text>
+        <text class="s" x="550" y="445" text-anchor="middle">CSV → PostgreSQL</text>
+
+        <!-- RDS -->
+        <rect class="n-data" x="680" y="250" width="140" height="90" rx="6"/>
+        <text class="t" x="750" y="282" text-anchor="middle">RDS PostgreSQL</text>
+        <text class="s es" x="750" y="302" text-anchor="middle">3 tablas +</text>
+        <text class="s en" x="750" y="302" text-anchor="middle">3 tables +</text>
+        <text class="s" x="750" y="317" text-anchor="middle">rejected_records</text>
+
+        <!-- VPC endpoints -->
+        <rect class="n-ep" x="372" y="290" width="56" height="120" rx="6"/>
+        <text class="s" x="400" y="342" text-anchor="middle">VPCE</text>
+        <text class="t" x="400" y="358" text-anchor="middle" style="font-size:12px">S3</text>
+        <text class="s" x="400" y="374" text-anchor="middle">gateway</text>
+
+        <rect class="n-ep" x="826" y="95" width="52" height="64" rx="6"/>
+        <text class="s" x="852" y="120" text-anchor="middle">VPCE</text>
+        <text class="s" x="852" y="136" text-anchor="middle">Secrets</text>
+
+        <!-- regional services -->
+        <rect class="n-data" x="170" y="255" width="120" height="60" rx="6"/>
+        <text class="t" x="230" y="282" text-anchor="middle">S3 · backups</text>
+        <text class="s es" x="230" y="299" text-anchor="middle">.avro versionado</text>
+        <text class="s en" x="230" y="299" text-anchor="middle">.avro versioned</text>
+
+        <rect class="n-data" x="170" y="367" width="120" height="60" rx="6"/>
+        <text class="t" x="230" y="394" text-anchor="middle">S3 · raw</text>
+        <text class="s es" x="230" y="411" text-anchor="middle">CSV históricos</text>
+        <text class="s en" x="230" y="411" text-anchor="middle">Historical CSVs</text>
+
+        <rect class="n-ext" x="915" y="95" width="100" height="64" rx="6"/>
+        <text class="t" x="965" y="121" text-anchor="middle">Secrets</text>
+        <text class="t" x="965" y="138" text-anchor="middle">Manager</text>
+
+        <rect class="n-ext" x="915" y="445" width="100" height="60" rx="6"/>
+        <text class="t" x="965" y="472" text-anchor="middle">CloudWatch</text>
+        <text class="s" x="965" y="489" text-anchor="middle">Logs</text>
+
+        <!-- flows -->
+        <line class="a" x1="110" y1="127" x2="170" y2="127" marker-end="url(#ah)"/>
+        <text class="lbl" x="140" y="104" text-anchor="middle">HTTPS</text>
+        <text class="lbl" x="140" y="116" text-anchor="middle">x-api-key</text>
+
+        <line class="a" x1="290" y1="127" x2="470" y2="127" marker-end="url(#ah)"/>
+        <text class="lbl es" x="345" y="119" text-anchor="middle">invoca</text>
+        <text class="lbl en" x="345" y="119" text-anchor="middle">invokes</text>
+
+        <line class="a" x1="110" y1="397" x2="170" y2="397" marker-end="url(#ah)"/>
+        <text class="lbl es" x="140" y="386" text-anchor="middle">sube</text>
+        <text class="lbl en" x="140" y="386" text-anchor="middle">uploads</text>
+
+        <line class="a" x1="290" y1="303" x2="372" y2="303" marker-start="url(#ah)" marker-end="url(#ah)"/>
+        <text class="lbl" x="331" y="295" text-anchor="middle">put / get</text>
+
+        <line class="a" x1="290" y1="397" x2="372" y2="397" marker-end="url(#ah)"/>
+        <text class="lbl es" x="331" y="389" text-anchor="middle">lee CSV</text>
+        <text class="lbl en" x="331" y="389" text-anchor="middle">reads CSV</text>
+
+        <!-- trunk from the S3 endpoint to both Lambdas -->
+        <path class="a" d="M428 350 H450 M450 143 V432"/>
+        <line class="a" x1="450" y1="143" x2="470" y2="143" marker-end="url(#ah)"/>
+        <line class="a" x1="450" y1="432" x2="470" y2="432" marker-end="url(#ah)"/>
+        <text class="lbl es" x="460" y="256">S3 por endpoint</text>
+        <text class="lbl es" x="460" y="270">privado, sin internet</text>
+        <text class="lbl en" x="460" y="256">S3 via private</text>
+        <text class="lbl en" x="460" y="270">endpoint, no internet</text>
+
+        <line class="a" x1="630" y1="110" x2="826" y2="110" marker-end="url(#ah)"/>
+        <text class="lbl" x="728" y="102" text-anchor="middle">GetSecretValue</text>
+        <line class="a" x1="878" y1="127" x2="915" y2="127" marker-end="url(#ah)"/>
+
+        <path class="a" d="M630 143 H750 V250" marker-end="url(#ah)"/>
+        <text class="lbl" x="760" y="205">SQL :5432</text>
+        <path class="a" d="M630 432 H750 V340" marker-end="url(#ah)"/>
+        <text class="lbl" x="760" y="392">SQL :5432</text>
+
+        <line class="a-dash" x1="852" y1="475" x2="915" y2="475" marker-end="url(#ah)"/>
+        <text class="lbl" x="883" y="466" text-anchor="middle">logs</text>
+        <text class="lbl es" x="414" y="503">Las dos Lambdas escriben logs y rechazos en CloudWatch</text>
+        <text class="lbl en" x="414" y="503">Both Lambdas write logs and rejections to CloudWatch</text>
+      </svg>
+    </div>
+    <figcaption class="es">La API y el loader comparten imagen y credenciales. Nada dentro de la VPC sale a internet: S3 y Secrets Manager se alcanzan por endpoints privados, y los logs los entrega el propio servicio Lambda. IAM limita cada Lambda a su bucket.</figcaption>
+    <figcaption class="en">The API and the loader share one image and credentials. Nothing inside the VPC reaches the internet: S3 and Secrets Manager are reached through private endpoints, and the Lambda service itself delivers the logs. IAM limits each Lambda to its own bucket.</figcaption>
+  </figure>
+
+  <section>
+    <h2 class="es">Dónde vive cada requisito del reto</h2>
+    <h2 class="en">Where each challenge requirement lives</h2>
+    <dl class="map es">
+      <div><dt>Migración histórica</dt><dd>Los tres CSV se suben a <code>S3 · raw</code>. La Lambda Loader los lee en lotes de 1000 y los carga en RDS, primero departments y jobs.</dd></div>
+      <div><dt>API REST, 1 a 1000 filas</dt><dd>API Gateway con API key y plan de uso, hacia la Lambda API. Un endpoint por tabla.</dd></div>
+      <div><dt>Validación y log de rechazos</dt><dd>El mismo validador para CSV y API. Los inválidos no se insertan: van a <code>rejected_records</code> y a CloudWatch.</dd></div>
+      <div><dt>Backup y restore en AVRO</dt><dd>La Lambda API escribe y lee archivos <code>.avro</code> en <code>S3 · backups</code>, con versionado activado.</dd></div>
+      <div><dt>Análisis de 2021</dt><dd>Dos endpoints GET ejecutan SQL sobre RDS. Solo ven filas válidas porque las inválidas nunca entraron.</dd></div>
+      <div><dt>Seguridad</dt><dd>API key, red privada, credencial de la base en Secrets Manager, buckets sin acceso público y cifrado.</dd></div>
+    </dl>
+    <dl class="map en">
+      <div><dt>Historical migration</dt><dd>The three CSV files are uploaded to <code>S3 · raw</code>. The Loader Lambda reads them in batches of 1000 and loads them into RDS, departments and jobs first.</dd></div>
+      <div><dt>REST API, 1 to 1000 rows</dt><dd>API Gateway with an API key and usage plan, in front of the API Lambda. One endpoint per table.</dd></div>
+      <div><dt>Validation and rejection log</dt><dd>The same validator for CSV and API. Invalid rows are never inserted: they go to <code>rejected_records</code> and to CloudWatch.</dd></div>
+      <div><dt>AVRO backup and restore</dt><dd>The API Lambda writes and reads <code>.avro</code> files in <code>S3 · backups</code>, with versioning enabled.</dd></div>
+      <div><dt>2021 analysis</dt><dd>Two GET endpoints run SQL on RDS. They only see valid rows because invalid ones never got in.</dd></div>
+      <div><dt>Security</dt><dd>API key, private network, database credential in Secrets Manager, buckets with no public access, and encryption.</dd></div>
+    </dl>
+  </section>
+
+  <figure>
+    <h2 class="es">Cómo llega el código a AWS</h2>
+    <h2 class="en">How the code reaches AWS</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 1040 150" role="img" data-aria-es="Flujo de despliegue: un push a GitHub dispara GitHub Actions, que construye la imagen, la sube a ECR y aplica Terraform para actualizar las Lambdas." data-aria-en="Deployment flow: a push to GitHub triggers GitHub Actions, which builds the image, pushes it to ECR and applies Terraform to update the Lambdas.">
+        <defs>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+            <path class="head" d="M0 0 L10 5 L0 10 z"/>
+          </marker>
+        </defs>
+        <rect class="n-ext" x="15" y="45" width="150" height="64" rx="6"/>
+        <text class="t" x="90" y="73" text-anchor="middle">GitHub</text>
+        <text class="s es" x="90" y="90" text-anchor="middle">ramas + PR</text>
+        <text class="s en" x="90" y="90" text-anchor="middle">branches + PRs</text>
+
+        <rect class="n-edge" x="235" y="45" width="150" height="64" rx="6"/>
+        <text class="t" x="310" y="73" text-anchor="middle">GitHub Actions</text>
+        <text class="s" x="310" y="90" text-anchor="middle">tests + build</text>
+
+        <rect class="n-data" x="455" y="45" width="150" height="64" rx="6"/>
+        <text class="t" x="530" y="73" text-anchor="middle">Amazon ECR</text>
+        <text class="s es" x="530" y="90" text-anchor="middle">imagen Docker</text>
+        <text class="s en" x="530" y="90" text-anchor="middle">Docker image</text>
+
+        <rect class="n-compute" x="675" y="45" width="150" height="64" rx="6"/>
+        <text class="t" x="750" y="73" text-anchor="middle">Terraform</text>
+        <text class="s" x="750" y="90" text-anchor="middle">plan + apply</text>
+
+        <rect class="n-compute" x="895" y="45" width="130" height="64" rx="6"/>
+        <text class="t" x="960" y="73" text-anchor="middle">AWS</text>
+        <text class="s" x="960" y="90" text-anchor="middle">Lambda, RDS, S3</text>
+
+        <line class="a" x1="165" y1="77" x2="235" y2="77" marker-end="url(#ah2)"/>
+        <text class="lbl" x="200" y="66" text-anchor="middle">push</text>
+        <line class="a" x1="385" y1="77" x2="455" y2="77" marker-end="url(#ah2)"/>
+        <text class="lbl" x="420" y="66" text-anchor="middle">docker push</text>
+        <line class="a" x1="605" y1="77" x2="675" y2="77" marker-end="url(#ah2)"/>
+        <text class="lbl es" x="640" y="66" text-anchor="middle">URI imagen</text>
+        <text class="lbl en" x="640" y="66" text-anchor="middle">image URI</text>
+        <line class="a" x1="825" y1="77" x2="895" y2="77" marker-end="url(#ah2)"/>
+        <text class="lbl es" x="860" y="66" text-anchor="middle">crea / actualiza</text>
+        <text class="lbl en" x="860" y="66" text-anchor="middle">creates / updates</text>
+        <path class="a-dash" d="M310 109 V132 H960 V111" marker-end="url(#ah2)"/>
+        <text class="lbl es" x="635" y="126" text-anchor="middle">rol temporal por OIDC, sin llaves guardadas</text>
+        <text class="lbl en" x="635" y="126" text-anchor="middle">temporary OIDC role, no stored keys</text>
+      </svg>
+    </div>
+    <figcaption class="es">GitHub Actions se autentica en AWS con un rol temporal (OIDC), así que no hay llaves de acceso guardadas en el repositorio.</figcaption>
+    <figcaption class="en">GitHub Actions signs in to AWS with a temporary role (OIDC), so no access keys are stored in the repository.</figcaption>
+  </figure>
+
+  <p class="cost es"><strong>Costo del PoC.</strong> RDS <code>db.t4g.micro</code> entra en el free tier. Se evita el NAT Gateway, que sería lo más caro; el endpoint de Secrets Manager cuesta unos 7 USD al mes. Al terminar, <code>terraform destroy</code> borra todo.</p>
+  <p class="cost en"><strong>PoC cost.</strong> RDS <code>db.t4g.micro</code> fits the free tier. The NAT Gateway, which would be the most expensive piece, is avoided; the Secrets Manager endpoint costs about 7 USD a month. When finished, <code>terraform destroy</code> removes everything.</p>
+
+  <section>
+    <h2 class="es">Evolución Big Data</h2>
+    <h2 class="en">Big Data evolution</h2>
+    <p class="lede es">La PoC ya sigue un patrón medallion ligero. Si el volumen crece, el lake se añade aguas abajo de PostgreSQL, sin reemplazarlo.</p>
+    <p class="lede en">The PoC already follows a lightweight medallion pattern. If volume grows, the lake is added downstream of PostgreSQL, not in place of it.</p>
+
+    <div class="table-wrap es">
+      <table>
+        <thead><tr><th>Capa</th><th>En esta PoC</th><th>A escala</th></tr></thead>
+        <tbody>
+          <tr><td>Bronce · crudo</td><td>CSV en <code>S3 · raw</code> y el JSON original de cada fila rechazada en <code>rejected_records</code></td><td>Tablas Iceberg crudas en S3, solo de anexado, alimentadas por CDC o streams</td></tr>
+          <tr><td>Plata · limpio</td><td>Tablas validadas <code>departments</code>, <code>jobs</code>, <code>hired_employees</code></td><td>Tablas Iceberg conformadas; validación como jobs de Spark o Glue con chequeos de calidad</td></tr>
+          <tr><td>Oro · negocio</td><td>Los dos endpoints de análisis (SQL)</td><td>Tablas o vistas Iceberg agregadas, servidas a BI</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap en">
+      <table>
+        <thead><tr><th>Layer</th><th>In this PoC</th><th>At scale</th></tr></thead>
+        <tbody>
+          <tr><td>Bronze · raw</td><td>CSV files in <code>S3 · raw</code> and the original JSON of every rejected row in <code>rejected_records</code></td><td>Append-only raw Iceberg tables on S3, fed by CDC or streams</td></tr>
+          <tr><td>Silver · clean</td><td>Validated tables <code>departments</code>, <code>jobs</code>, <code>hired_employees</code></td><td>Conformed Iceberg tables; validation as Spark or Glue jobs with data-quality checks</td></tr>
+          <tr><td>Gold · business</td><td>The two analytics endpoints (SQL)</td><td>Aggregated Iceberg tables or views served to BI</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <figure style="margin-top:20px">
+      <div class="diagram">
+        <svg viewBox="0 0 1040 170" role="img" data-aria-es="Arquitectura objetivo: RDS PostgreSQL alimenta por CDC las capas bronce, plata y oro en Iceberg sobre S3, que se consumen desde Athena, Snowflake o BI." data-aria-en="Target architecture: RDS PostgreSQL feeds the bronze, silver and gold Iceberg layers on S3 through CDC, consumed from Athena, Snowflake or BI.">
+          <defs>
+            <marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+              <path class="head" d="M0 0 L10 5 L0 10 z"/>
+            </marker>
+          </defs>
+          <text class="zone-t es" x="10" y="26">Arquitectura objetivo · no forma parte de la PoC</text>
+          <text class="zone-t en" x="10" y="26">Target architecture · not part of the PoC</text>
+
+          <rect class="n-data" x="10" y="75" width="135" height="64" rx="6"/>
+          <text class="t" x="77" y="103" text-anchor="middle">RDS PostgreSQL</text>
+          <text class="s es" x="77" y="120" text-anchor="middle">origen (esta PoC)</text>
+          <text class="s en" x="77" y="120" text-anchor="middle">source (this PoC)</text>
+
+          <rect class="n-future" x="233" y="75" width="135" height="64" rx="6"/>
+          <text class="t es" x="300" y="103" text-anchor="middle">Bronce</text>
+          <text class="t en" x="300" y="103" text-anchor="middle">Bronze</text>
+          <text class="s es" x="300" y="120" text-anchor="middle">Iceberg · crudo</text>
+          <text class="s en" x="300" y="120" text-anchor="middle">Iceberg · raw</text>
+
+          <rect class="n-future" x="456" y="75" width="135" height="64" rx="6"/>
+          <text class="t es" x="523" y="103" text-anchor="middle">Plata</text>
+          <text class="t en" x="523" y="103" text-anchor="middle">Silver</text>
+          <text class="s es" x="523" y="120" text-anchor="middle">Iceberg · limpio</text>
+          <text class="s en" x="523" y="120" text-anchor="middle">Iceberg · clean</text>
+
+          <rect class="n-future" x="679" y="75" width="135" height="64" rx="6"/>
+          <text class="t es" x="746" y="103" text-anchor="middle">Oro</text>
+          <text class="t en" x="746" y="103" text-anchor="middle">Gold</text>
+          <text class="s es" x="746" y="120" text-anchor="middle">Iceberg · agregado</text>
+          <text class="s en" x="746" y="120" text-anchor="middle">Iceberg · aggregated</text>
+
+          <rect class="n-ext" x="895" y="75" width="135" height="64" rx="6"/>
+          <text class="t es" x="962" y="103" text-anchor="middle">Consumo</text>
+          <text class="t en" x="962" y="103" text-anchor="middle">Consumption</text>
+          <text class="s" x="962" y="120" text-anchor="middle">Athena · Snowflake</text>
+
+          <line class="a" x1="145" y1="107" x2="233" y2="107" marker-end="url(#ah3)"/>
+          <text class="lbl" x="189" y="96" text-anchor="middle">CDC (DMS)</text>
+          <line class="a" x1="368" y1="107" x2="456" y2="107" marker-end="url(#ah3)"/>
+          <text class="lbl es" x="412" y="84" text-anchor="middle">valida</text>
+          <text class="lbl es" x="412" y="96" text-anchor="middle">y limpia</text>
+          <text class="lbl en" x="412" y="84" text-anchor="middle">validates</text>
+          <text class="lbl en" x="412" y="96" text-anchor="middle">and cleans</text>
+          <line class="a" x1="591" y1="107" x2="679" y2="107" marker-end="url(#ah3)"/>
+          <text class="lbl es" x="635" y="96" text-anchor="middle">agrega</text>
+          <text class="lbl en" x="635" y="96" text-anchor="middle">aggregates</text>
+          <line class="a" x1="814" y1="107" x2="895" y2="107" marker-end="url(#ah3)"/>
+          <text class="lbl" x="855" y="96" text-anchor="middle">SQL</text>
+
+          <text class="lbl es" x="300" y="160" text-anchor="middle">Glue Data Catalog · Lake Formation</text>
+          <text class="lbl en" x="300" y="160" text-anchor="middle">Glue Data Catalog · Lake Formation</text>
+        </svg>
+      </div>
+      <figcaption class="es">PostgreSQL sigue siendo el sistema de registro y hace cumplir las llaves foráneas. El lake recibe los cambios por captura de datos (AWS DMS), y los snapshots de Iceberg sustituirían a los exports AVRO como backup.</figcaption>
+      <figcaption class="en">PostgreSQL stays the system of record and keeps enforcing foreign keys. The lake receives changes through change data capture (AWS DMS), and Iceberg snapshots would replace the AVRO exports as backup.</figcaption>
+    </figure>
+
+    <div class="two">
+      <div class="es">
+        <h3>Cuándo dar el paso</h3>
+        <p>Decenas de millones de filas o más, varios sistemas de origen, muchos consumidores de BI consultando a la vez, o eventos que llegan de forma continua (Kinesis o MSK en lugar de lotes REST).</p>
+      </div>
+      <div class="en">
+        <h3>When to make the move</h3>
+        <p>Tens of millions of rows or more, several source systems, many BI users querying at once, or events arriving continuously (Kinesis or MSK instead of REST batches).</p>
+      </div>
+      <div class="es">
+        <h3>Por qué no ahora</h3>
+        <p>El reto es una carga transaccional pequeña que necesita llaves foráneas aplicadas, y pide priorizar la claridad sobre el sobrediseño. Snowflake no hace cumplir las llaves foráneas, así que la validación seguiría en la aplicación.</p>
+      </div>
+      <div class="en">
+        <h3>Why not now</h3>
+        <p>The challenge is a small transactional workload that needs enforced foreign keys, and it asks to prioritise clarity over over-engineering. Snowflake does not enforce foreign keys, so validation would stay in the application.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  (function () {
+    var page = document.getElementById("page");
+    var buttons = { es: document.getElementById("btn-es"), en: document.getElementById("btn-en") };
+
+    function setLang(lang) {
+      page.setAttribute("data-lang", lang);
+      document.documentElement.lang = lang;
+      buttons.es.setAttribute("aria-pressed", String(lang === "es"));
+      buttons.en.setAttribute("aria-pressed", String(lang === "en"));
+      var svgs = document.querySelectorAll("svg[data-aria-" + lang + "]");
+      for (var i = 0; i < svgs.length; i++) {
+        svgs[i].setAttribute("aria-label", svgs[i].getAttribute("data-aria-" + lang));
+      }
+      try { localStorage.setItem("globant-poc-lang", lang); } catch (e) {}
+    }
+
+    buttons.es.addEventListener("click", function () { setLang("es"); });
+    buttons.en.addEventListener("click", function () { setLang("en"); });
+
+    var saved = null;
+    try { saved = localStorage.getItem("globant-poc-lang"); } catch (e) {}
+    setLang(saved === "en" ? "en" : "es");
+  })();
+</script>
