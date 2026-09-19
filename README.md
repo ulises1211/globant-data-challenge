@@ -69,6 +69,13 @@ The response lists every rejected record with its reason.
 - **PostgreSQL (RDS) instead of a warehouse or lake:** the challenge asks for a SQL database with
   foreign-key validation, small batch inserts and a tiny dataset. See "Big Data evolution" for
   when that would change.
+- **Endpoints are `def`, not `async def`, on purpose.** The database driver (psycopg) and boto3
+  are blocking libraries. FastAPI runs a plain `def` endpoint in a thread pool, so the event loop
+  never freezes. An `async def` endpoint calling a blocking library would stall the whole server
+  while it waits. `async def` pays off only with async drivers and many concurrent requests per
+  process, and a Lambda container serves one request at a time.
+- **Code conventions:** imports at the top of every module (standard library, third party, local),
+  and every module, class, function and method has a bilingual (English / Spanish) docstring.
 
 ## Data findings (provided CSVs)
 
@@ -139,6 +146,24 @@ endpoint costs about 7 USD per month. Run `destroy.yml` when you finish.
 
 The IAM role used by GitHub Actions has `AdministratorAccess` because Terraform creates IAM roles,
 a VPC and more. Its trust is limited to this single repository; narrow the policy before any real use.
+
+## Tear down (stop all charges)
+
+Do it in this order, because the destroy workflow needs the role and the state bucket that step 3
+removes.
+
+1. GitHub → Actions → **Destroy** → *Run workflow*, type `destroy`, approve in `production`.
+   It removes RDS, the VPC and endpoints, both Lambdas, API Gateway, ECR and the two data buckets.
+   If it fails with a `DependencyViolation` on a subnet or security group, wait 10 to 20 minutes
+   (Lambda network interfaces are released late) and run it again.
+2. In the AWS console, check that nothing is left: RDS, VPC (endpoints), Lambda, API Gateway, ECR,
+   S3 and Secrets Manager (region us-east-1).
+3. CloudFormation → delete the stack `globant-poc-bootstrap` (removes the GitHub role and OIDC trust).
+4. S3 → bucket `globant-poc-tfstate-<account id>` → **Empty**, then **Delete** (the stack keeps it on purpose).
+5. Next day, Billing → Cost Explorer should show no new charges. The budget alert is free to keep.
+
+To bring everything back: run **Deploy**, then **Load historical data** with `reset` checked.
+(After step 3 you must repeat the one-time setup first.)
 
 ## Big Data evolution
 
