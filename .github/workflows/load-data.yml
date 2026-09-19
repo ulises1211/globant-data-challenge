@@ -1,0 +1,32 @@
+name: Load historical data
+
+# Manual: runs the CSV migration Lambda once. Running it twice is safe, but the
+# rows that already exist are logged as rejected ("id already exists").
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Invoke the loader Lambda
+        run: |
+          BUCKET="globant-poc-raw-$(aws sts get-caller-identity --query Account --output text)"
+          aws lambda invoke \
+            --function-name globant-poc-loader \
+            --cli-read-timeout 330 \
+            --cli-binary-format raw-in-base64-out \
+            --payload "{\"bucket\": \"$BUCKET\"}" \
+            response.json
+          cat response.json
+          if grep -q errorMessage response.json; then exit 1; fi
