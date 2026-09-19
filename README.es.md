@@ -113,7 +113,7 @@ y no se guarda ninguna llave de acceso (GitHub asume un rol de AWS mediante OIDC
 |---|---|---|
 | `ci.yml` | Pull request | Pruebas, `terraform fmt` / `validate` / `plan` |
 | `deploy.yml` | Merge a `main` | Pruebas, construye la imagen, la sube a ECR y `terraform apply` (requiere aprobación) |
-| `load-data.yml` | Manual | Ejecuta la Lambda loader: CSV de S3 a PostgreSQL |
+| `load-data.yml` | Manual | Ejecuta la Lambda loader: CSV de S3 a PostgreSQL. La opción `reset` vacía todas las tablas antes (incluidas las filas de prueba) y recarga desde cero |
 | `destroy.yml` | Manual | Elimina todo lo que creó Terraform |
 
 **Cómo llega un cambio de código a AWS**

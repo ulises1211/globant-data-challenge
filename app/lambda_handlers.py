@@ -13,5 +13,9 @@ api_handler = Mangum(app, lifespan="off", api_gateway_base_path="/v1")
 
 
 def loader_handler(event, context):
-    """Invoke with {"bucket": "...", "prefix": "optional/"} to run the CSV migration."""
-    return {"summary": load_from_s3(event["bucket"], event.get("prefix", ""))}
+    """Invoke with {"bucket": "...", "prefix": "optional/", "reset": true} to run the CSV migration.
+
+    "reset" (default false) empties all tables first, so the load starts from scratch.
+    """
+    reset = bool(event.get("reset", False))
+    return {"summary": load_from_s3(event["bucket"], event.get("prefix", ""), reset=reset)}

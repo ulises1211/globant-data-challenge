@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Iterable, Iterator
 
 from .config import MAX_BATCH_SIZE
-from .db import close_pool, init_schema
+from .db import close_pool, get_connection, init_schema
 from .ingestion import IngestResult, ingest
 from .validators import TABLES
 
@@ -48,8 +48,19 @@ def load_table(table: str, lines: Iterable[str]) -> IngestResult:
     return total
 
 
-def load_directory(directory: Path) -> list[dict]:
+def reset_tables() -> None:
+    """Empty every table (including the rejected-record log) before a fresh load."""
+    with get_connection() as conn:
+        conn.execute(
+            "TRUNCATE hired_employees, jobs, departments, rejected_records RESTART IDENTITY"
+        )
+    logger.warning("RESET all tables were emptied before loading")
+
+
+def load_directory(directory: Path, reset: bool = False) -> list[dict]:
     init_schema()
+    if reset:
+        reset_tables()
     summary = []
     for table in LOAD_ORDER:
         with open(directory / f"{table}.csv", encoding="utf-8-sig", newline="") as handle:
@@ -58,11 +69,13 @@ def load_directory(directory: Path) -> list[dict]:
     return summary
 
 
-def load_from_s3(bucket: str, prefix: str = "") -> list[dict]:
+def load_from_s3(bucket: str, prefix: str = "", reset: bool = False) -> list[dict]:
     import boto3
 
     s3 = boto3.client("s3")
     init_schema()
+    if reset:
+        reset_tables()
     summary = []
     for table in LOAD_ORDER:
         body = s3.get_object(Bucket=bucket, Key=f"{prefix}{table}.csv")["Body"].read()
@@ -76,9 +89,10 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     parser = argparse.ArgumentParser(description="Load the historical CSV files")
     parser.add_argument("--dir", default="data", type=Path, help="folder with the CSV files")
+    parser.add_argument("--reset", action="store_true", help="empty all tables before loading")
     args = parser.parse_args()
     try:
-        for row in load_directory(args.dir):
+        for row in load_directory(args.dir, reset=args.reset):
             print(row)
     finally:
         close_pool()

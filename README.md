@@ -113,7 +113,7 @@ through OIDC).
 |---|---|---|
 | `ci.yml` | Pull request | Tests, `terraform fmt` / `validate` / `plan` |
 | `deploy.yml` | Merge to `main` | Tests, build image, push to ECR, `terraform apply` (needs approval) |
-| `load-data.yml` | Manual | Runs the loader Lambda: CSVs from S3 into PostgreSQL |
+| `load-data.yml` | Manual | Runs the loader Lambda: CSVs from S3 into PostgreSQL. The `reset` option empties all tables first (test rows included) and reloads from scratch |
 | `destroy.yml` | Manual | Removes everything Terraform created |
 
 **How a code change reaches AWS**

@@ -62,6 +62,24 @@ def test_historical_load_rejects_invalid_rows(client):
     assert stored == emp["inserted"] and logged == emp["rejected"] and orphans == 0
 
 
+def test_reset_reload_removes_test_rows(client):
+    from app.db import get_connection
+    from app.loader import load_directory
+
+    first = load_csvs()["hired_employees"]
+    test_row = {"id": 99999, "name": "Test", "datetime": "2021-02-03T04:05:06Z",
+                "department_id": 1, "job_id": 1}
+    assert client.post("/hired-employees", json=[test_row]).status_code == 201
+
+    again = {r["table"]: r for r in load_directory(DATA_DIR, reset=True)}["hired_employees"]
+    assert (again["inserted"], again["rejected"]) == (first["inserted"], first["rejected"])
+
+    with get_connection() as conn:
+        assert conn.execute("SELECT count(*) FROM hired_employees WHERE id = 99999").fetchone()[0] == 0
+        # The rejection log restarts too: only the rejects of this load remain.
+        assert conn.execute("SELECT count(*) FROM rejected_records").fetchone()[0] == first["rejected"]
+
+
 def test_api_batch_validation_and_limits(client):
     load_csvs()
     ok = {"id": 90001, "name": "Test", "datetime": "2021-02-03T04:05:06Z", "department_id": 1, "job_id": 1}

@@ -1,9 +1,15 @@
 name: Load historical data
 
-# Manual: runs the CSV migration Lambda once. Running it twice is safe, but the
-# rows that already exist are logged as rejected ("id already exists").
+# Manual: runs the CSV migration Lambda. Running it twice without `reset` is safe,
+# but the rows that already exist are logged as rejected ("id already exists").
+# With `reset` every table is emptied first (test rows included) and reloaded.
 on:
   workflow_dispatch:
+    inputs:
+      reset:
+        description: "Empty all tables before loading (deletes everything, including test data)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -22,11 +28,12 @@ jobs:
       - name: Invoke the loader Lambda
         run: |
           BUCKET="globant-poc-raw-$(aws sts get-caller-identity --query Account --output text)"
+          RESET="${{ inputs.reset }}"
           aws lambda invoke \
             --function-name globant-poc-loader \
             --cli-read-timeout 330 \
             --cli-binary-format raw-in-base64-out \
-            --payload "{\"bucket\": \"$BUCKET\"}" \
+            --payload "{\"bucket\": \"$BUCKET\", \"reset\": $RESET}" \
             response.json
           cat response.json
           if grep -q errorMessage response.json; then exit 1; fi
