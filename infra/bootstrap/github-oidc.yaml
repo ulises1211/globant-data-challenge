@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  One-time bootstrap for the Globant PoC. Creates what Terraform cannot create
+  for itself: the GitHub OIDC trust, the role GitHub Actions assumes, and the
+  S3 bucket that stores the Terraform state. Launch it once from the AWS
+  console (CloudFormation), in us-east-1.
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Default: ulises1211
+    Description: GitHub user or organisation that owns the repository.
+  GitHubRepo:
+    Type: String
+    Default: globant-data-challenge
+    Description: Repository name (only this repository can assume the role).
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub globant-poc-tfstate-${AWS::AccountId}
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: globant-poc-github-actions
+      Description: Assumed by GitHub Actions (OIDC) to run Terraform and push images to ECR.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !GetAtt GitHubOidcProvider.Arn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOwner}/${GitHubRepo}:*
+      # PoC shortcut: Terraform creates VPC, RDS, IAM roles, Lambda and more, so the
+      # role needs broad rights. Trust is limited to ONE repository. Narrow it down
+      # before any real use.
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  RoleArn:
+    Description: Paste this in GitHub as the repository variable AWS_ROLE_ARN.
+    Value: !GetAtt GitHubActionsRole.Arn
+  StateBucket:
+    Description: Terraform state bucket (also a GitHub variable, TF_STATE_BUCKET).
+    Value: !Ref TerraformStateBucket
