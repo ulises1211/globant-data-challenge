@@ -70,6 +70,13 @@ La respuesta lista cada registro rechazado con su motivo.
 - **PostgreSQL (RDS) en lugar de un warehouse o data lake:** el reto pide una base SQL con
   validación de llaves foráneas, inserciones pequeñas y un dataset diminuto. Consulta
   "Evolución Big Data" para saber cuándo eso cambiaría.
+- **Los endpoints son `def`, no `async def`, a propósito.** El driver de la base (psycopg) y boto3
+  son librerías bloqueantes. FastAPI ejecuta un endpoint `def` en un pool de hilos, así el bucle de
+  eventos nunca se congela. Un endpoint `async def` que llama a una librería bloqueante detendría todo
+  el servidor mientras espera. `async def` solo rinde con drivers asíncronos y muchas peticiones
+  simultáneas por proceso, y un contenedor Lambda atiende una petición a la vez.
+- **Convenciones de código:** imports al inicio de cada módulo (librería estándar, terceros, locales),
+  y todo módulo, clase, función y método tiene un docstring bilingüe (inglés / español).
 
 ## Hallazgos de los datos (CSV entregados)
 
@@ -113,7 +120,7 @@ y no se guarda ninguna llave de acceso (GitHub asume un rol de AWS mediante OIDC
 |---|---|---|
 | `ci.yml` | Pull request | Pruebas, `terraform fmt` / `validate` / `plan` |
 | `deploy.yml` | Merge a `main` | Pruebas, construye la imagen, la sube a ECR y `terraform apply` (requiere aprobación) |
-| `load-data.yml` | Manual | Ejecuta la Lambda loader: CSV de S3 a PostgreSQL |
+| `load-data.yml` | Manual | Ejecuta la Lambda loader: CSV de S3 a PostgreSQL. La opción `reset` vacía todas las tablas antes (incluidas las filas de prueba) y recarga desde cero |
 | `destroy.yml` | Manual | Elimina todo lo que creó Terraform |
 
 **Cómo llega un cambio de código a AWS**
@@ -140,6 +147,24 @@ Manager cuesta unos 7 USD al mes. Ejecuta `destroy.yml` cuando termines.
 El rol IAM que usa GitHub Actions tiene `AdministratorAccess` porque Terraform crea roles IAM, una
 VPC y más. Su confianza se limita a este único repositorio; conviene reducir la política antes de
 cualquier uso real.
+
+## Destruir todo (para no generar gastos)
+
+Hazlo en este orden, porque el workflow de destrucción necesita el rol y el bucket de estado que
+elimina el paso 3.
+
+1. GitHub → Actions → **Destroy** → *Run workflow*, escribe `destroy` y aprueba en `production`.
+   Elimina RDS, la VPC y los endpoints, las dos Lambdas, API Gateway, ECR y los dos buckets de datos.
+   Si falla con un `DependencyViolation` en una subred o grupo de seguridad, espera de 10 a 20 minutos
+   (las interfaces de red de Lambda se liberan tarde) y vuelve a ejecutarlo.
+2. En la consola de AWS, verifica que no quede nada: RDS, VPC (endpoints), Lambda, API Gateway, ECR,
+   S3 y Secrets Manager (región us-east-1).
+3. CloudFormation → elimina el stack `globant-poc-bootstrap` (quita el rol de GitHub y la confianza OIDC).
+4. S3 → bucket `globant-poc-tfstate-<id de cuenta>` → **Empty** y luego **Delete** (el stack lo conserva a propósito).
+5. Al día siguiente, Billing → Cost Explorer no debe mostrar cargos nuevos. La alerta de presupuesto es gratis y puede quedarse.
+
+Para volver a levantar todo: ejecuta **Deploy** y luego **Load historical data** con `reset` marcado.
+(Tras el paso 3 debes repetir primero la preparación única.)
 
 ## Evolución Big Data
 
