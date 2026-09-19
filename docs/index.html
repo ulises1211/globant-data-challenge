@@ -351,6 +351,35 @@
     <figcaption class="en">GitHub Actions signs in to AWS with a temporary role (OIDC), so no access keys are stored in the repository.</figcaption>
   </figure>
 
+  <section>
+    <h2 class="es">Qué pasa cuando cambias el código</h2>
+    <h2 class="en">What happens when you change the code</h2>
+    <div class="table-wrap es">
+      <table>
+        <thead><tr><th>Acción</th><th>Qué pasa</th></tr></thead>
+        <tbody>
+          <tr><td>Push a una rama o abrir un PR</td><td>Solo el CI: pruebas y <code>terraform plan</code>. No cambia nada en AWS.</td></tr>
+          <tr><td>Merge a <code>main</code></td><td>Arranca Deploy y espera tu aprobación en <code>production</code>.</td></tr>
+          <tr><td>Aprobar el despliegue</td><td>Se construye una imagen con tag único y se sube a ECR. Terraform actualiza las dos Lambdas, que comparten imagen. Tarda unos 3 a 5 minutos.</td></tr>
+          <tr><td>Volver atrás</td><td><code>git revert</code> del commit en <code>main</code> y aprobar el despliegue.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-wrap en">
+      <table>
+        <thead><tr><th>Action</th><th>What happens</th></tr></thead>
+        <tbody>
+          <tr><td>Push to a branch or open a PR</td><td>CI only: tests and <code>terraform plan</code>. Nothing changes in AWS.</td></tr>
+          <tr><td>Merge to <code>main</code></td><td>Deploy starts and waits for your approval in <code>production</code>.</td></tr>
+          <tr><td>Approve the deployment</td><td>An image with a unique tag is built and pushed to ECR. Terraform updates both Lambdas, which share the image. Takes about 3 to 5 minutes.</td></tr>
+          <tr><td>Roll back</td><td><code>git revert</code> the commit on <code>main</code> and approve the deployment.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede es" style="margin-top:12px">Empujar directo a <code>main</code> también despliega, pero te salta la revisión del plan. Lo recomendable es rama, PR y merge.</p>
+    <p class="lede en" style="margin-top:12px">Pushing straight to <code>main</code> also deploys, but skips the chance to review the plan. Branch, PR and merge is the recommended path.</p>
+  </section>
+
   <p class="cost es"><strong>Costo del PoC.</strong> RDS <code>db.t4g.micro</code> entra en el free tier. Se evita el NAT Gateway, que sería lo más caro; el endpoint de Secrets Manager cuesta unos 7 USD al mes. Al terminar, <code>terraform destroy</code> borra todo.</p>
   <p class="cost en"><strong>PoC cost.</strong> RDS <code>db.t4g.micro</code> fits the free tier. The NAT Gateway, which would be the most expensive piece, is avoided; the Secrets Manager endpoint costs about 7 USD a month. When finished, <code>terraform destroy</code> removes everything.</p>
 

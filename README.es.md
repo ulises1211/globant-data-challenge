@@ -2,9 +2,9 @@
 
 [🇬🇧 English](README.md) · 🇪🇸 Español
 
-Python 3.12 · FastAPI · PostgreSQL · AVRO · Docker · (AWS + Terraform, en progreso)
+Python 3.12 · FastAPI · PostgreSQL · AVRO · Docker · (AWS + Terraform + GitHub Actions)
 
-Diagrama de arquitectura (ES/EN): [docs/arquitectura-aws.html](docs/arquitectura-aws.html)
+Diagrama de arquitectura (ES/EN): [https://ulises1211.github.io/globant-data-challenge/](https://ulises1211.github.io/globant-data-challenge/)
 
 ## Qué hace
 
@@ -115,6 +115,19 @@ y no se guarda ninguna llave de acceso (GitHub asume un rol de AWS mediante OIDC
 | `deploy.yml` | Merge a `main` | Pruebas, construye la imagen, la sube a ECR y `terraform apply` (requiere aprobación) |
 | `load-data.yml` | Manual | Ejecuta la Lambda loader: CSV de S3 a PostgreSQL |
 | `destroy.yml` | Manual | Elimina todo lo que creó Terraform |
+
+**Cómo llega un cambio de código a AWS**
+
+| Acción | Qué pasa |
+|---|---|
+| `git push` a una rama o abrir un pull request | Solo el CI: pruebas y `terraform plan`. **No cambia nada en AWS.** |
+| Merge a `main` | Arranca `deploy.yml` y espera tu aprobación en `production`. |
+| Aprobar el despliegue | Se construye una imagen nueva y se sube a ECR con un tag único (`commit-número de ejecución`). Terraform ve el nuevo `image_uri` y actualiza las dos Lambdas, que comparten imagen. |
+
+Después del primer despliegue, un cambio de código tarda unos 3 a 5 minutos. Flujo recomendado:
+rama → push → pull request → CI en verde → merge → aprobar. Empujar directo a `main` también
+despliega, pero te salta la revisión del plan. Para volver atrás, haz `git revert` del commit en
+`main` y aprueba el despliegue. `deploy.yml` también se puede lanzar a mano desde Actions → Run workflow.
 
 **Primer uso:** ejecuta `deploy.yml` y luego `load-data.yml`. En la consola de API Gateway abre
 *API keys* y muestra la llave; llama a `https://<api-id>.execute-api.us-east-1.amazonaws.com/v1/...`

@@ -2,9 +2,9 @@
 
 🇬🇧 English · [🇪🇸 Español](README.es.md)
 
-Python 3.12 · FastAPI · PostgreSQL · AVRO · Docker · (AWS + Terraform, in progress)
+Python 3.12 · FastAPI · PostgreSQL · AVRO · Docker · (AWS + Terraform + GitHub Actions)
 
-Architecture diagram (ES/EN): [docs/arquitectura-aws.html](docs/arquitectura-aws.html)
+Architecture diagram (ES/EN): [https://ulises1211.github.io/globant-data-challenge/](https://ulises1211.github.io/globant-data-challenge/)
 
 ## What it does
 
@@ -115,6 +115,19 @@ through OIDC).
 | `deploy.yml` | Merge to `main` | Tests, build image, push to ECR, `terraform apply` (needs approval) |
 | `load-data.yml` | Manual | Runs the loader Lambda: CSVs from S3 into PostgreSQL |
 | `destroy.yml` | Manual | Removes everything Terraform created |
+
+**How a code change reaches AWS**
+
+| Action | What happens |
+|---|---|
+| `git push` to a feature branch, or opening a pull request | CI only: tests and `terraform plan`. **Nothing changes in AWS.** |
+| Merge to `main` | `deploy.yml` starts and waits for your approval in `production`. |
+| Approve the deployment | A new image is built and pushed to ECR with a unique tag (`commit-run number`). Terraform sees the new `image_uri` and updates both Lambdas, which share the image. |
+
+After the first deployment a code change takes about 3 to 5 minutes. Recommended flow:
+branch → push → pull request → CI is green → merge → approve. Pushing straight to `main` also
+deploys, but skips the chance to review the plan. To roll back, `git revert` the commit on `main`
+and approve the deployment. `deploy.yml` can also be started by hand from Actions → Run workflow.
 
 **First use:** run `deploy.yml`, then `load-data.yml`. In the API Gateway console, open
 *API keys* and reveal the key; call `https://<api-id>.execute-api.us-east-1.amazonaws.com/v1/...`
